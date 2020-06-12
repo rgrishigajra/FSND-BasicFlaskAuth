@@ -18,7 +18,12 @@ class AuthError(Exception):
         self.error = error
         self.status_code = status_code
 
-
+def check_permissions(permissions,payload):
+    if 'permissions' not in payload:
+        abort(400)
+    if permissions not in payload['permissions']:
+        abort(403)
+    return True
 def get_token_auth_header():
     """Obtains the Access Token from the Authorization Header
     """
@@ -105,23 +110,30 @@ def verify_decode_jwt(token):
                 'description': 'Unable to find the appropriate key.'
             }, 400)
 
+def requires_auth(permissions=''):
+    def requires_auth_decor(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            token = get_token_auth_header()
+            print(token)
+            try:
+                payload = verify_decode_jwt(token)
+            except:
+                print(sys.exc_info())
+                abort(401)
+            print(check_permissions(permissions,payload)) 
+            return f(payload, *args, **kwargs)
+        return wrapper
+    return requires_auth_decor
 
-def requires_auth(f):
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        token = get_token_auth_header()
-        print(token)
-        try:
-            payload = verify_decode_jwt(token)
-        except:
-            print(sys.exc_info())
-            abort(401)
-        return f(payload, *args, **kwargs)
+# @app.route('/headers')
+# @requires_auth
+# def headers(payload):
+#     print(payload)
+#     return 'Access Granted'
 
-    return wrapper
-
-@app.route('/headers')
-@requires_auth
-def headers(payload):
-    print(payload)
-    return 'Access Granted'
+@app.route('/image')
+@requires_auth('get:images')
+def image(jwt):
+    print(jwt)
+    return 'not implemented'
